@@ -1,4 +1,4 @@
-name: CI and CD for Dev
+name: CI and CD for Assessment Tax Project
 
 on:
   push:
@@ -61,7 +61,7 @@ jobs:
           cd assessment-tax
           go build ./...
           go test ./... -coverprofile=coverage.out
-          sonar-scanner -Dsonar.projectKey=assessment-tax -Dsonar.go.coverage.reportPaths=coverage.out
+          sonar-scanner -Dsonar.projectKey=basic-Kubernetes -Dsonar.go.coverage.reportPaths=coverage.out
 
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -91,9 +91,4 @@ jobs:
           echo "$KUBE_CONFIG" | base64 --decode > kubeconfig
           kubectl --kubeconfig=kubeconfig apply -f k8s
           kubectl --kubeconfig=kubeconfig set image deployment/api-deployment api=locker01/assessment-tax-api:v1
-          kubectl --kubeconfig=kubeconfig set image deployment/frontend-deployment frontend=locker01/assessment-tax-client:v1
-
-      - name: Sync with ArgoCD
-        run: |
-          argocd login "${{ secrets.ARGOCD_SERVER }}" --username "${{ secrets.ARGOCD_USERNAME }}" --password "${{ secrets.ARGOCD_PASSWORD }}" --insecure
-          argocd app sync myapp
+          kubectl --kubeconfig=kubeconfig set image deployment/client-deployment client=locker01/assessment-tax-client:v1
