@@ -1,5 +1,5 @@
 // migration
-package main
+package migration
 
 import (
 	"log"
