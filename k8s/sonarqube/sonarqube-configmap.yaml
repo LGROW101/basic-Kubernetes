@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sonar-config
+  namespace: sonarqube
+data:
+  sonar.properties: |
+    sonar.projectKey=assessment-tax
+    sonar.sources=.
+    sonar.exclusions=**/vendor/**,**/tests/**
+    sonar.tests=./tests
+    sonar.test.inclusions=**/*_test.go
+    sonar.go.coverage.reportPaths=./coverage.out
