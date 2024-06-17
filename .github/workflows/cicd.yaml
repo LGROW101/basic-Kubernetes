@@ -63,6 +63,11 @@ jobs:
           go test ./... -coverprofile=coverage.out
           sonar-scanner -Dsonar.projectKey=basic-Kubernetes -Dsonar.go.coverage.reportPaths=coverage.out
 
+      - name: Generate SonarQube report
+        run: |
+          cd assessment-tax
+          curl -s -u "${{ secrets.SONAR_TOKEN }}:" "${{ secrets.SONAR_HOST_URL }}/api/measures/component?component=basic-Kubernetes&metricKeys=coverage&format=json" > sonarqube-report.json
+
   build-and-deploy:
     runs-on: ubuntu-latest
     needs: [test, sonarqube]
@@ -89,6 +94,13 @@ jobs:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
         run: |
           echo "$KUBE_CONFIG" | base64 --decode > kubeconfig
+          kubectl --kubeconfig=kubeconfig create configmap coverage-report --from-file=assessment-tax/sonarqube-report.json
           kubectl --kubeconfig=kubeconfig apply -f k8s
+          kubectl --kubeconfig=kubeconfig apply -f k8s/coverage-report.yaml
           kubectl --kubeconfig=kubeconfig set image deployment/api-deployment api=locker01/assessment-tax-api:v1
           kubectl --kubeconfig=kubeconfig set image deployment/client-deployment client=locker01/assessment-tax-client:v1
+
+      - name: Sync with ArgoCD
+        run: |
+          argocd login "${{ secrets.ARGOCD_SERVER }}" --username "${{ secrets.ARGOCD_USERNAME }}" --password "${{ secrets.ARGOCD_PASSWORD }}" --insecure
+          argocd app sync basic-Kubernetes
