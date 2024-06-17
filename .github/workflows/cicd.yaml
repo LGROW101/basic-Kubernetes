@@ -68,27 +68,48 @@ jobs:
           cd assessment-tax
           curl -s -u "${{ secrets.SONAR_TOKEN }}:" "${{ secrets.SONAR_HOST_URL }}/api/measures/component?component=basic-Kubernetes&metricKeys=coverage&format=json" > sonarqube-report.json
 
-  build-and-deploy:
+  build-and-push-docker-image:
+    name: Build and Push Docker Images
     runs-on: ubuntu-latest
     needs: [test, sonarqube]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Build Docker images
-        run: |
-          docker build -t locker01/assessment-tax-api:v1 -f assessment-tax/Dockerfile ./assessment-tax
-          docker build -t locker01/assessment-tax-client:v1 -f client/Dockerfile ./client
+      - name: Setup SHA
+        run: echo "GITHUB_SHA=${GITHUB_SHA}" >> $GITHUB_ENV
 
-      - name: Push Docker images to Docker Hub
-        env:
-          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-        run: |
-          echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
-          docker push locker01/assessment-tax-api:v1
-          docker push locker01/assessment-tax-client:v1
+      - name: Login ghcr.io
+        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Build and push api Docker image
+        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
+        with:
+          context: ./assessment-tax
+          file: ./assessment-tax/Dockerfile
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: ghcr.io/lgrow101/basic-kubernetes-api:${{ env.GITHUB_SHA }}
+
+      - name: Build and push client Docker image
+        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
+        with:
+          context: ./client
+          file: ./client/Dockerfile
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: ghcr.io/lgrow101/basic-kubernetes-client:${{ env.GITHUB_SHA }}
+
+      - name: Image digest
+        run: echo ${{ steps.docker_build.outputs.digest }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push-docker-image
+
+    steps:
       - name: Deploy to Kubernetes
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
@@ -97,8 +118,8 @@ jobs:
           kubectl --kubeconfig=kubeconfig create configmap coverage-report --from-file=assessment-tax/sonarqube-report.json
           kubectl --kubeconfig=kubeconfig apply -f k8s
           kubectl --kubeconfig=kubeconfig apply -f k8s/coverage-report.yaml
-          kubectl --kubeconfig=kubeconfig set image deployment/api-deployment api=locker01/assessment-tax-api:v1
-          kubectl --kubeconfig=kubeconfig set image deployment/client-deployment client=locker01/assessment-tax-client:v1
+          kubectl --kubeconfig=kubeconfig set image deployment/api-deployment api=ghcr.io/lgrow101/basic-kubernetes-api:${{ env.GITHUB_SHA }}
+          kubectl --kubeconfig=kubeconfig set image deployment/client-deployment client=ghcr.io/lgrow101/basic-kubernetes-client:${{ env.GITHUB_SHA }}
 
       - name: Sync with ArgoCD
         run: |
