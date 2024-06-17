@@ -69,59 +69,65 @@ jobs:
           curl -s -u "${{ secrets.SONAR_TOKEN }}:" "${{ secrets.SONAR_HOST_URL }}/api/measures/component?component=basic-Kubernetes&metricKeys=coverage&format=json" > sonarqube-report.json
 
   build-and-push-docker-image:
-    name: Build and Push Docker Images
+    name: Build Docker image and push to repositories
     runs-on: ubuntu-latest
     needs: [test, sonarqube]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
       - name: Setup SHA
         run: echo "GITHUB_SHA=${GITHUB_SHA}" >> $GITHUB_ENV
 
+      - name: Build the Docker image for assessment-tax-api
+        run: docker build ./assessment-tax --file ./assessment-tax/Dockerfile --tag ghcr.io/lgrow101/basic-kubernetes-api:${{ env.GITHUB_SHA }}
+
+      - name: Build the Docker image for assessment-tax-client
+        run: docker build ./client --file ./client/Dockerfile --tag ghcr.io/lgrow101/basic-kubernetes-client:${{ env.GITHUB_SHA }}
+
       - name: Login ghcr.io
-        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        uses: docker/login-action@v1.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+          logout: true
 
-      - name: Build and push api Docker image
-        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
+      - name: Push to GitHub Container Registry
+        uses: docker/build-push-action@v2
         with:
-          context: ./assessment-tax
-          file: ./assessment-tax/Dockerfile
+          context: .
+          tags: |
+            ghcr.io/lgrow101/basic-kubernetes-api:${{ env.GITHUB_SHA }}
+            ghcr.io/lgrow101/basic-kubernetes-client:${{ env.GITHUB_SHA }}
           push: ${{ github.ref == 'refs/heads/main' }}
-          tags: ghcr.io/lgrow101/basic-kubernetes-api:${{ env.GITHUB_SHA }}
-
-      - name: Build and push client Docker image
-        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
-        with:
-          context: ./client
-          file: ./client/Dockerfile
-          push: ${{ github.ref == 'refs/heads/main' }}
-          tags: ghcr.io/lgrow101/basic-kubernetes-client:${{ env.GITHUB_SHA }}
 
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
 
-  deploy:
+  gitops-versioning:
     runs-on: ubuntu-latest
     needs: build-and-push-docker-image
-
     steps:
-      - name: Deploy to Kubernetes
-        env:
-          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
-        run: |
-          echo "$KUBE_CONFIG" | base64 --decode > kubeconfig
-          kubectl --kubeconfig=kubeconfig create configmap coverage-report --from-file=assessment-tax/sonarqube-report.json
-          kubectl --kubeconfig=kubeconfig apply -f k8s
-          kubectl --kubeconfig=kubeconfig apply -f k8s/coverage-report.yaml
-          kubectl --kubeconfig=kubeconfig set image deployment/api-deployment api=ghcr.io/lgrow101/basic-kubernetes-api:${{ env.GITHUB_SHA }}
-          kubectl --kubeconfig=kubeconfig set image deployment/client-deployment client=ghcr.io/lgrow101/basic-kubernetes-client:${{ env.GITHUB_SHA }}
+      - name: checkout
+        uses: actions/checkout@v2
+        with:
+          repository: LGROW101/basic-Kubernetes
+          persist-credentials: false
+          fetch-depth: 0
 
-      - name: Sync with ArgoCD
+      - name: change image tag
         run: |
-          argocd login "${{ secrets.ARGOCD_SERVER }}" --username "${{ secrets.ARGOCD_USERNAME }}" --password "${{ secrets.ARGOCD_PASSWORD }}" --insecure
-          argocd app sync basic-Kubernetes
+          git --version
+          git config user.name "lgrow101"
+          git config user.email "lgrow101@gmail.com"
+          sed -i -E "s/ghcr.io\/lgrow101\/basic-kubernetes-api.*$/ghcr.io\/lgrow101\/basic-kubernetes-api:${GITHUB_SHA}/" k8s/api-deployment.yml
+          sed -i -E "s/ghcr.io\/lgrow101\/basic-kubernetes-client.*$/ghcr.io\/lgrow101\/basic-kubernetes-client:${GITHUB_SHA}/" k8s/client-deployment.yml
+          git add k8s/api-deployment.yml k8s/client-deployment.yml
+          git commit -m "🤖 change docker image version to ${GITHUB_SHA}"
+      - name: push changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.PAT }}
+          repository: LGROW101/basic-Kubernetes
+          branch: main
