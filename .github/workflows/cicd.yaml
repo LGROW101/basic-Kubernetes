@@ -87,6 +87,8 @@ jobs:
           tags: |
             ghcr.io/lgrow101/basic-kubernetes/assessment-tax-api:${{ env.GITHUB_SHA }}
           push: ${{ github.ref == 'refs/heads/main' }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push client image
         uses: docker/build-push-action@v2
@@ -96,6 +98,8 @@ jobs:
           tags: |
             ghcr.io/lgrow101/basic-kubernetes/assessment-tax-client:${{ env.GITHUB_SHA }}
           push: ${{ github.ref == 'refs/heads/main' }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
   gitops-versioning:
     runs-on: ubuntu-latest
