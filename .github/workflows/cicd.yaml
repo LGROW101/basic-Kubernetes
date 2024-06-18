@@ -85,7 +85,7 @@ jobs:
           context: ./assessment-tax
           file: ./assessment-tax/Dockerfile
           tags: |
-            ghcr.io/LGROW101/basic-Kubernetes/assessment-tax-api:${{ env.GITHUB_SHA }}
+            ghcr.io/lgrow101/basic-Kubernetes/assessment-tax-api:${{ env.GITHUB_SHA }}
           push: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and push client image
@@ -94,7 +94,7 @@ jobs:
           context: ./client
           file: ./client/Dockerfile
           tags: |
-            ghcr.io/LGROW101/basic-Kubernetes/assessment-tax-client:${{ env.GITHUB_SHA }}
+            ghcr.io/lgrow101/basic-Kubernetes/assessment-tax-client:${{ env.GITHUB_SHA }}
           push: ${{ github.ref == 'refs/heads/main' }}
 
   gitops-versioning:
@@ -112,8 +112,8 @@ jobs:
           git --version
           git config user.name "locker01"
           git config user.email "lgrow101@gmail.com"
-          sed -i -E "s/ghcr.io\/LGROW101\/basic-Kubernetes\/assessment-tax-api.*$/ghcr.io\/LGROW101\/basic-Kubernetes\/assessment-tax-api:${GITHUB_SHA}/" k8s/backend/api-deployment.yml
-          sed -i -E "s/ghcr.io\/LGROW101\/basic-Kubernetes\/assessment-tax-client.*$/ghcr.io\/LGROW101\/basic-Kubernetes\/assessment-tax-client:${GITHUB_SHA}/" k8s/frontend/client-deployment.yml
+          sed -i -E "s/ghcr.io\/lgrow101\/basic-Kubernetes\/assessment-tax-api.*$/ghcr.io\/lgrow101\/basic-Kubernetes\/assessment-tax-api:${GITHUB_SHA}/" k8s/backend/api-deployment.yml
+          sed -i -E "s/ghcr.io\/lgrow101\/basic-Kubernetes\/assessment-tax-client.*$/ghcr.io\/lgrow101\/basic-Kubernetes\/assessment-tax-client:${GITHUB_SHA}/" k8s/frontend/client-deployment.yml
           git add k8s/backend/api-deployment.yml k8s/frontend/client-deployment.yml
           git commit -m "🤖 change docker image version to ${GITHUB_SHA}"
       - name: push changes
