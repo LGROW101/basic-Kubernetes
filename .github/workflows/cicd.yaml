@@ -1,4 +1,4 @@
-name: CI and CD for Assessment Tax Project
+name: CI and CD
 
 on:
   push:
@@ -85,7 +85,7 @@ jobs:
           context: ./assessment-tax
           file: ./assessment-tax/Dockerfile
           tags: |
-            ghcr.io/lgrow101/basic-kubernetes-api:${{ env.GITHUB_SHA }}
+            locker01/assessment-tax-api:${{ env.GITHUB_SHA }}
           push: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and push client image
@@ -94,19 +94,14 @@ jobs:
           context: ./client
           file: ./client/Dockerfile
           tags: |
-            ghcr.io/lgrow101/basic-kubernetes-client:${{ env.GITHUB_SHA }}
+            locker01/assessment-tax-client:${{ env.GITHUB_SHA }}
           push: ${{ github.ref == 'refs/heads/main' }}
 
-      - name: Login ghcr.io
-        uses: docker/login-action@v1.8.0
+      - name: Login to Docker Hub
+        uses: docker/login-action@v1
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          logout: true
-
-      - name: Image digest
-        run: echo ${{ steps.docker_build.outputs.digest }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
   gitops-versioning:
     runs-on: ubuntu-latest
@@ -115,22 +110,20 @@ jobs:
       - name: checkout
         uses: actions/checkout@v2
         with:
-          repository: LGROW101/basic-Kubernetes
           persist-credentials: false
           fetch-depth: 0
 
       - name: change image tag
         run: |
-          git --version
-          git config user.name "lgrow101"
+          git --version 
+          git config user.name "locker01"
           git config user.email "lgrow101@gmail.com"
-          sed -i -E "s/ghcr.io\/lgrow101\/basic-kubernetes-api.*$/ghcr.io\/lgrow101\/basic-kubernetes-api:${GITHUB_SHA}/" k8s/api-deployment.yml
-          sed -i -E "s/ghcr.io\/lgrow101\/basic-kubernetes-client.*$/ghcr.io\/lgrow101\/basic-kubernetes-client:${GITHUB_SHA}/" k8s/client-deployment.yml
-          git add k8s/api-deployment.yml k8s/client-deployment.yml
+          sed -i -E "s/locker01\/assessment-tax-api.*$/locker01\/assessment-tax-api:${GITHUB_SHA}/" k8s/backend/api-deployment.yml
+          sed -i -E "s/locker01\/assessment-tax-client.*$/locker01\/assessment-tax-client:${GITHUB_SHA}/" k8s/frontend/client-deployment.yml
+          git add k8s/backend/api-deployment.yml k8s/frontend/client-deployment.yml
           git commit -m "🤖 change docker image version to ${GITHUB_SHA}"
       - name: push changes
         uses: ad-m/github-push-action@master
         with:
-          github_token: ${{ secrets.PAT }}
-          repository: LGROW101/basic-Kubernetes
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           branch: main
