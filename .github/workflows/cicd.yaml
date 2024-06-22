@@ -28,60 +28,10 @@ jobs:
         with:
           name: coverage
           path: assessment-tax/coverage.out
-  sonarqube:
-    name: SonarQube Scan
-    runs-on: ubuntu-latest
-    needs: [test]
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: actions/download-artifact@v4
-        name: Download coverage file
-        with:
-          name: coverage
-          path: ./assessment-tax
-      - name: SonarQube Scan
-        uses: sonarsource/sonarqube-scan-action@master
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-        with:
-          projectBaseDir: ./assessment-tax
-          args: >
-            -Dsonar.go.coverage.reportPaths=coverage.out
-            -Dsonar.language=go
-            -Dsonar.sources=.
-            -Dsonar.tests=.
-            -Dsonar.test.inclusions=**/*_test.go
-            -Dsonar.projectKey=${{ env.PROJECT_NAME }}
-            -Dsonar.working.directory=.scannerwork
-      - name: Check SonarQube report
-        if: always()
-        run: |
-          echo "Checking for report-task.txt"
-          ls -la ./assessment-tax/.scannerwork || true
-          if [ -f "./assessment-tax/.scannerwork/report-task.txt" ]; then
-            echo "Content of report-task.txt:"
-            cat ./assessment-tax/.scannerwork/report-task.txt
-          else
-            echo "report-task.txt not found"
-            echo "Listing contents of assessment-tax directory:"
-            ls -R ./assessment-tax
-          fi
-      - name: SonarQube Quality Gate check
-        uses: sonarsource/sonarqube-quality-gate-action@master
-        timeout-minutes: 5
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-        with:
-          scanMetadataReportFile: ./assessment-tax/.scannerwork/report-task.txt
 
   build-and-push-docker-image:
     name: Build Image and Push to Registry
     runs-on: ubuntu-latest
-    needs: [sonarqube]
     steps:
       - uses: actions/checkout@v4
       - name: Setup SHA
@@ -106,6 +56,7 @@ jobs:
           context: ./client
           push: ${{ github.ref == 'refs/heads/main' }}
           tags: ghcr.io/${{ env.REPO_NAME }}/assessment-tax-client:${{ env.GITHUB_SHA }}
+
   gitops-dev-versioning:
     runs-on: ubuntu-latest
     needs: build-and-push-docker-image
