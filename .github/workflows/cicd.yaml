@@ -56,20 +56,19 @@ jobs:
             -Dsonar.test.inclusions=**/*_test.go
             -Dsonar.projectKey=${{ env.PROJECT_NAME }}
             -Dsonar.working.directory=.scannerwork
-
-            - name: Check SonarQube report
-            if: always()
-            run: |
-              echo "Checking for report-task.txt"
-              ls -la ./assessment-tax/.scannerwork || true
-              if [ -f "./assessment-tax/.scannerwork/report-task.txt" ]; then
-                echo "Content of report-task.txt:"
-                cat ./assessment-tax/.scannerwork/report-task.txt
-              else
-                echo "report-task.txt not found"
-                echo "Listing contents of assessment-tax directory:"
-                ls -R ./assessment-tax
-              fi
+      - name: Check SonarQube report
+        if: always()
+        run: |
+          echo "Checking for report-task.txt"
+          ls -la ./assessment-tax/.scannerwork || true
+          if [ -f "./assessment-tax/.scannerwork/report-task.txt" ]; then
+            echo "Content of report-task.txt:"
+            cat ./assessment-tax/.scannerwork/report-task.txt
+          else
+            echo "report-task.txt not found"
+            echo "Listing contents of assessment-tax directory:"
+            ls -R ./assessment-tax
+          fi
       - name: SonarQube Quality Gate check
         uses: sonarsource/sonarqube-quality-gate-action@master
         timeout-minutes: 5
